@@ -19,73 +19,138 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Kinjal Gajera, kg28752
 
-#### Introduction 
+#### Introduction: 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+The two datasets I chose were USA arrests ('USArrests') and the average SAT results in different states ('SAT'). The 'USArrests' dataset contains the types of arrests in the United States with the variables being state, murder, assault, urban pop, and rape. The 'SAT' dataset contains the variables: state, expend, ratio, salary, frac, verbal, math, and sat based on public schools. Both datasets contain states as the common variable. I obtained these datasets through the website provided in the instructions: https://vincentarelbundock.github.io/Rdatasets/datasets.html. These datasets were interesting to me because I noticed the difference in crime rates between the poorer neighborhood I lived in as a child and the area I l live in now. Students weren't able to obtain a great education in underserved neighborhoods compared to students who lived in a developed area and therefore, the SAT scores would be much lower and crime rates would be much higher in poorer areas/states. I expect that if students have lower SAT scores (and therefore, higher illiteracy rates), then they will have higher crime rates and arrests. 
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
+library(dplyr)
+library(magrittr)
+library(tidyverse)
+library(grid)
 
+arrest <- read_csv("https://vincentarelbundock.github.io/Rdatasets/csv/datasets/USArrests.csv")
+sat <- read_csv("https://vincentarelbundock.github.io/Rdatasets/csv/mosaicData/SAT.csv")
 ```
+
 
 #### Tidying: Reshaping
-
-If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
-
 ```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
+sat2 <- subset(sat, select = -c(X1))
+arrest2 <- rename(arrest, state = X1)
 ```
+Firstly, I had to remove an unnecessary column from the 'sat' dataset and rename a column in the 'arrests' dataset so that the 'state' column would be exactly same in both datasets.
 
-    
 #### Joining/Merging
 
 ```{R}
-# your joining code
+joineddata <- full_join(sat2,arrest2)
 
-# your joining code
+nrow(sat2)
+nrow(arrest2)
+nrow(joineddata)
+
+ncol(sat2)
+ncol(arrest2)
+ncol(joineddata)
 ```
-
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+After cleaning the data slightly, I joined the 'arrest2' and 'sat2' datasets by state. The common variable in both datasets is necessary to join the two datasets together. I decided to use full join in order to look at the SAT scores and crime rates/arrests for each state in one dataset without any redundancy and keep all the data. No observations were dropped after joining. Originally, the 'arrest2' dataset had 5 variables and 50 observations whereas the SAT dataset had 8 variables and 50 observations. The joined dataset has 12 variables with 50 observations for each variable. No observations or variables were dropped after joining. 
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+joineddata %>% filter(state == "Texas") %>% glimpse()
 
-# your wrangling code
+joineddata %>% arrange(desc("sat")) %>% glimpse()
 
-# your wrangling code
+joineddata %>% select("state", "sat", "Murder", "Assault") %>% glimpse()
+
+mutatedjoineddata <- joineddata %>% mutate(rapeincidence = case_when(Rape > 30 ~ "High", Rape <= 30 ~ "Low"))
+
+mutatedjoineddata %>% group_by(rapeincidence) %>% summarise(meansatbasedonri = mean(sat), n())
+
+mutatedjoineddata$rapeincidence <- str_replace_all(mutatedjoineddata$rapeincidence, c("High" = "H", "Low" = "L"))
+
+mutatedjoineddata %>% group_by(rapeincidence) %>% summarise(medianbasedonverbal = median(verbal), n())
+
+mutatedjoineddata %>% summarise(sdofavgsalary = sd(salary))
+
+mutatedjoineddata %>% summarise(minofmath = min(math))
+
+mutatedjoineddata %>% summarise(maxofmurder = max(Murder))
+
+mutatedjoineddata %>% summarise(varianceofexpend = var(expend))
+
+mutatedjoineddata %>% summarise(quantileofassault = quantile(Assault))   
+
+mutatedjoineddata %>% summarise(minofurbanpop = min(UrbanPop))
+
+mutatedjoineddata %>% summarise(maxofratio = max(ratio))
+
+mutatedjoineddata %>% summarise(meanofrape = mean(Rape))
+
+summaryfunc <- function(data) { 
+  result <- data$verbal + data$math
+  return(result)
+}
+mutatedjoineddata %>% summarise(meansat = mean(summaryfunc(mutatedjoineddata)))
+
+mutatedjoineddata %>% group_by(rapeincidence) %>% summarise(n())
+
+untidy <- mutatedjoineddata %>% pivot_wider(names_from = "rapeincidence", values_from = "Rape")
+
+tidy <- untidy %>% pivot_longer(cols = c("H", "L"), names_to = "rapeincidence", values_to = "Rape")
+
+satsummary <- mutatedjoineddata %>% group_by(rapeincidence) %>% summarise(meansatbasedonri = mean(sat), n())
+
+library(gt)
+sat_tbl <- 
+  tibble(
+    (satsummary)
+  )
+sat_tbl
+gt_tbl <- gt(sat_tbl)
+gt_tbl
 ```
+To explore the joined dataset, I used the filter, arrange, and select dplyr funtions. Using the filter function, I was able to see all the data for only Texas. By using the arrange function, I was able to see the total SAT scores from greatest to least in which North Dakota had the highest average SAT score. By using the select function, I was able to see only the variables that I had selected for each state and in this case, the chosen variables were 'state', 'sat', 'Murder', and 'Assault'. Moreover, to peform a mutate function, I assigned all states with rape cases greater than 30 as 'High' and cases less than 30 as 'Low'. This was placed in a new column titled 'rapeincidence'. Then, I used the summarise and group by functions to determine statistical data of the mutated dataset. I calculated the mean SAT score based on rape incidence using the group by and summarse functions. This showed that there were 8 observations with a high rape incidence and a mean SAT score of 951.750. There were 42 observations with a low rape incidence and a mean SAT score of 968.619. Essentially, this calculation showed that states with higher rape incidences had lower average SAT scores. I also used the group by and summarise functions to determine the median verbal SAT scores after grouping by rape incidence. In this case, there were 8 states with high rape incidences and a mean verbal score of 446.5. There were 42 states with low rape incidences and a median verbal score of 454. Essentially, this showed that the states with higher rape incidences had lower median verbal scores. I also assigned 'High' and 'Low' categories as 'H' and 'L', respectively, using the str_replace_all function. To get more statistical information on the dataset, I used the sd, mean, min, max, var, and quantile functions. I used summarise and the standard deviation function (sd) to determine the standard deviation of the mean salaries of public school teachers which was around 5.941. This shows us how dispersed the data was. I used the min and max functions to determine the minimum math SAT score and the maximum number of murder arrests (per 100,000) which were 443 and 17.4, respectively. Additionally, I used the summarise function again with the variance function to determine the variance of the expenditure per pupil (in dollars) which was 1.857 and then used quantile function to determine the values for the number of assault arrests (per 100,000) which were 45, 109, 159, 249, 337, respectively. The minimum urban population value (%) and the maximum ratio was calculated to be 32 and 24.3, respectively. The mean value of the number of rape arrests (per 100,000) was 21.232.
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
-
+Although there was already a column for the total SAT score, I still defined my own function as 'summaryfunc' which gave the result as the math and verbal scores combined (total SAT score) and used it inside summarise to determine the mean total SAT score from the mutated dataset. The result was 965.92. Then, I untidied and retidied the mutated joined dataset to show the correct use of the functions pivot_wider and pivot_longer which made more columns and more rows, respectively. Additionally, I used the gt package to create a summary table of the mean SAT score based on rape incidence which also showed the number of states that had each category of high and low and the mean scores. Overall, the data was thoroughly explored and understood to gain insight on the various functions. 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+ggplot(mutatedjoineddata) + geom_point(aes(sat, Assault,  color = rapeincidence)) +
+  geom_smooth(aes(sat, Assault), method="lm", se=F) +
+  xlab("Total SAT Score") +
+  ylab("Number of Assault Arrests") +
+  labs(colour = "Rape Incidence") +
+  ggtitle("Relationship of Total SAT Scores and Number of Assault Arrests") +
+  scale_y_continuous(breaks = seq(0, 350, 50)) +
+  theme(axis.line = element_line(colour = "blue", size = 0.5, linetype = "solid"))
 ```
-
-Your discussion of plot 1
+The scatterplot above displays the data for the relationship between the total average SAT scores and the number of assault arrests for every state. I labeled both the x and y axes and made a key on the right side of the scatterplot displaying that the orange color refers to a high rape incidence and the blue color refers to a low rape incidence. Based on the graph, there is a negative relationship between the two variables in which as the total SAT score increases, the number of assault arrests decreases. Essentially, a low SAT score is indirectly relates to a high illiteracy rate which is then comparable to the crime rate within each state. Based on the graph and the trendline, ss the total SAT score increases, illiteracy rate and the number of assault arrests decrease. 
 
 ```{R}
-# your plot 2
+ggplot(mutatedjoineddata, aes(state, Rape, fill=state)) +
+  geom_bar(stat = "summary") +
+  theme_light() + scale_y_continuous(n.breaks = 5) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 55, hjust = 1)) +
+  ylab("Rape Arrests per 100,000") +
+  xlab("State") +
+  ggtitle("Relationship of Rape Arrests") + 
+  geom_text(aes(label = Rape), hjust=0, vjust = 0, size = 3)
 ```
-
-Your discussion of plot 2
-
+The bar graph above displays the number of rape arrests per 100,000 people in each state. The text is placed on top of each bar to get the exact number of arrests when examining the data. The angle of each state on the x-axis was adjusted to fit vertically instead of being clustered horizontally. The graph shows the comparison of the number of rape arrests between all states. The states with a higher and lower number of rape arrests can easily be seen through this graph. 
 ```{R}
-# your plot 3
+ggplot(mutatedjoineddata, aes(rapeincidence, sat)) +
+  geom_violin() + geom_bar(stat='summary', width =.1)+
+  theme(legend.position="none") +
+  ylab("Total Average SAT Score") +
+  xlab("Rape Incidence") +
+  ggtitle("Relationship Between Rape Incidence and Total Average SAT Score in USA") +
+  scale_x_discrete(labels = c("High", "Low"))
 ```
-
-Your discussion of plot 3
-
-#### Concluding Remarks
-
-If any!
-
-
-
-
+The violin plot above with bars depicts the relationship between rape incidence and the total average SAT scores for all the states combined. In this case, a high rape incidence correlates to a lower total average SAT score and a higher density around the SAT score of 930. A low rape incidence correlates to a higher total average SAT score and a higher density around the SAT score of 900 and 1050. The bars display the mean SAT scores of all the states combined at a high and low rape incidence. 
